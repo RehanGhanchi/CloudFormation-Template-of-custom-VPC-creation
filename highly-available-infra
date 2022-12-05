@@ -1,0 +1,654 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Creates a VPC with private and public facing subnets across Three availability zones,
+  Internet Gateway, VPC Gateway Attachment, Route Tables , NAT gateway,  and Subnet Route Table
+  Association
+Parameters:
+  EnvironmentLevel:
+    Description: Enter environment name (Production/NonProduction)
+    Type: String
+    AllowedValues:
+      - Production
+      - NonProduction
+    ConstraintDescription: must specify Production or NonProduction.
+    Default: Production
+  ApplicationUnit:
+    Description: Enter Application Unit name
+    Type: String
+    Default: EC2 Migration
+  VPCName:
+    Description: Enter a VPC name (in App-Env-VPC format)
+    Type: String
+    Default: Sightline-VPC
+  VPCCIDRBlock:
+    Description: Enter a VPC CIDR Block - Enter a value like 10.0.0.0/16
+    Type: String
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+    Default: 10.0.0.0/24
+  PrimaryAz:
+    Description: 'Enter a AvailabilityZone (a,b,c etc.)'
+    Type: String
+    Default: a
+    AllowedValues:
+      - a
+      - b
+      - c
+    ConstraintDescription: >-
+      must be a list of valid EC2 availability zones for the selected Virtual
+      Private Cloud
+  SecondaryAz:
+    Description: 'Enter a AvailabilityZone (a,b,c etc.)'
+    Type: String
+    Default: b
+    AllowedValues:
+      - a
+      - b
+      - c
+    ConstraintDescription: >-
+      must be a list of valid EC2 availability zones for the selected Virtual
+      Private Cloud
+  ThirdAz:
+    Description: 'Enter a AvailabilityZone (a,b,c etc.)'
+    Type: String
+    Default: c
+    AllowedValues:
+      - a
+      - b
+      - c
+    ConstraintDescription: >-
+      must be a list of valid EC2 availability zones for the selected Virtual
+      Private Cloud
+  CIDRPrivateSubnet1:
+    Description: Enter CIDR block for this subnet - like 10.0.0.0/16
+    Type: String
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+    Default: 10.0.0.1/28
+  CIDRPrivateSubnet2:
+    Description: Enter CIDR block for this subnet - like 10.0.0.0/16
+    Type: String
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+    Default: 10.0.0.16/28
+  CIDRPrivateSubnet3:
+    Description: Enter CIDR block for this subnet - like 10.0.0.0/16
+    Type: String
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+    Default: 10.0.0.32/28
+  CIDRPrivateSubnet4:
+    Description: Enter CIDR block for this subnet - like 10.0.0.0/16
+    Type: String
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+    Default: 10.0.0.48/28
+  CIDRPrivateSubnet5:
+    Description: Enter CIDR block for this subnet - like 10.0.0.0/16
+    Type: String
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+    Default: 10.0.0.64/28
+  CIDRPrivateSubnet6:
+    Description: Enter CIDR block for this subnet - like 10.0.0.0/16
+    Type: String
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+    Default: 10.0.0.80/28
+  CIDRPublicSubnet1:
+    Description: Enter CIDR block for this subnet - like 10.0.0.0/16
+    Type: String
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+    Default: 10.0.0.96/28
+  CIDRPublicSubnet2:
+    Description: Enter CIDR block for this subnet - like 10.0.0.0/16
+    Type: String
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+    Default: 10.0.0.112/28
+  CIDRPublicSubnet3:
+    Description: Enter CIDR block for this subnet - like 10.0.0.0/16
+    Type: String
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+    Default: 10.0.0.128/28
+Resources:
+  VPCId:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Ref VPCCIDRBlock
+      InstanceTenancy: default
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: Name
+          Value: !Ref VPCName
+        - Key: Environment
+          Value: !Ref EnvironmentLevel
+        - Key: APP
+          Value: !Ref ApplicationUnit
+  VPCNACL1:
+    Type: 'AWS::EC2::NetworkAcl'
+    Properties:
+      VpcId: !Ref VPCId
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - VPCNACL1
+        - Key: Environment
+          Value: !Ref EnvironmentLevel
+        - Key: APP
+          Value: !Ref ApplicationUnit
+  VPCNACL2:
+    Type: 'AWS::EC2::NetworkAcl'
+    Properties:
+      VpcId: !Ref VPCId
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - VPCNACL2
+        - Key: Environment
+          Value: !Ref EnvironmentLevel
+        - Key: APP
+          Value: !Ref ApplicationUnit
+  PrivateSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Join 
+        - ''
+        - - !Ref 'AWS::Region'
+          - !Ref PrimaryAz
+      VpcId: !Ref VPCId
+      CidrBlock: !Ref CIDRPrivateSubnet1
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - PrivateSubnet1A
+  PrivateSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Join 
+        - ''
+        - - !Ref 'AWS::Region'
+          - !Ref PrimaryAz
+      VpcId: !Ref VPCId
+      CidrBlock: !Ref CIDRPrivateSubnet2
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - PrivateSubnet2A
+  PrivateSubnet3:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Join 
+        - ''
+        - - !Ref 'AWS::Region'
+          - !Ref SecondaryAz
+      VpcId: !Ref VPCId
+      CidrBlock: !Ref CIDRPrivateSubnet3
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - PrivateSubnet3B
+  PrivateSubnet4:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Join 
+        - ''
+        - - !Ref 'AWS::Region'
+          - !Ref SecondaryAz
+      VpcId: !Ref VPCId
+      CidrBlock: !Ref CIDRPrivateSubnet4
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - PrivateSubnet4B
+  PrivateSubnet5:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Join 
+        - ''
+        - - !Ref 'AWS::Region'
+          - !Ref ThirdAz
+      VpcId: !Ref VPCId
+      CidrBlock: !Ref CIDRPrivateSubnet5
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - PrivateSubnet5C
+  PrivateSubnet6:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Join 
+        - ''
+        - - !Ref 'AWS::Region'
+          - !Ref ThirdAz
+      VpcId: !Ref VPCId
+      CidrBlock: !Ref CIDRPrivateSubnet6
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - PrivateSubnet6C
+  PublicSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Join 
+        - ''
+        - - !Ref 'AWS::Region'
+          - !Ref PrimaryAz
+      VpcId: !Ref VPCId
+      CidrBlock: !Ref CIDRPublicSubnet1
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - PublicSubnet1A
+  PublicSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Join 
+        - ''
+        - - !Ref 'AWS::Region'
+          - !Ref SecondaryAz
+      VpcId: !Ref VPCId
+      CidrBlock: !Ref CIDRPublicSubnet2
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - PublicSubnet2B
+  PublicSubnet3:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Join 
+        - ''
+        - - !Ref 'AWS::Region'
+          - !Ref ThirdAz
+      VpcId: !Ref VPCId
+      CidrBlock: !Ref CIDRPublicSubnet3
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - PublicSubnet3C
+  PrivateSubnet1NACLAssociation:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      NetworkAclId: !Ref VPCNACL1
+  PrivateSubnet2NACLAssociation:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      NetworkAclId: !Ref VPCNACL1
+  PrivateSubnet3NACLAssociation:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet3
+      NetworkAclId: !Ref VPCNACL1
+  PrivateSubnet4NACLAssociation:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet4
+      NetworkAclId: !Ref VPCNACL1
+  PrivateSubnet5NACLAssociation:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet5
+      NetworkAclId: !Ref VPCNACL1
+  PrivateSubnet6NACLAssociation:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet6
+      NetworkAclId: !Ref VPCNACL1
+  PublicSubnet1NACLAssociation:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      NetworkAclId: !Ref VPCNACL2
+  PublicSubnet2NACLAssociation:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      NetworkAclId: !Ref VPCNACL2
+  PublicSubnet3NACLAssociation:
+    Type: 'AWS::EC2::SubnetNetworkAclAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet3
+      NetworkAclId: !Ref VPCNACL2
+  VPCNACL1IngressEntry1:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref VPCNACL1
+      RuleNumber: '1'
+      Protocol: '-1'
+      RuleAction: allow
+      Egress: 'false'
+      CidrBlock: 0.0.0.0/0
+  VPCNACL1EgressEntry1:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref VPCNACL1
+      RuleNumber: '1'
+      Protocol: '-1'
+      RuleAction: allow
+      Egress: 'true'
+      CidrBlock: 0.0.0.0/0
+  VPCNACL2IngressEntry1:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref VPCNACL2
+      RuleNumber: '1'
+      Protocol: '-1'
+      RuleAction: allow
+      Egress: 'false'
+      CidrBlock: 0.0.0.0/0
+  VPCNACL2EgressEntry1:
+    Type: 'AWS::EC2::NetworkAclEntry'
+    Properties:
+      NetworkAclId: !Ref VPCNACL2
+      RuleNumber: '1'
+      Protocol: '-1'
+      RuleAction: allow
+      Egress: 'true'
+      CidrBlock: 0.0.0.0/0
+  PrivateRtb1:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPCId
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - PrivateRtb1
+  PrivateRtb2:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPCId
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - PrivateRtb2
+  PrivateRtb3:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPCId
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - PrivateRtb3
+  PublicRtb1:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPCId
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - PublicRtb1
+  PrivateSubnet1RtbAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRtb1
+  PrivateSubnet2RtbAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRtb1
+  PrivateSubnet3RtbAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet3
+      RouteTableId: !Ref PrivateRtb2
+  PrivateSubnet4RtbAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet4
+      RouteTableId: !Ref PrivateRtb2
+  PrivateSubnet5RtbAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet5
+      RouteTableId: !Ref PrivateRtb3
+  PrivateSubnet6RtbAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet6
+      RouteTableId: !Ref PrivateRtb3
+  PublicSubnet1RtbAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRtb1
+  PublicSubnet2RtbAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRtb1
+  PublicSubnet3RtbAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet3
+      RouteTableId: !Ref PublicRtb1
+  IGW:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - IGW
+  EIP1:
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+      Tags: 
+          - Key: Name 
+            Value: !Join
+              - '-'
+              - - !Ref ApplicationUnit
+                - !Ref EnvironmentLevel
+                - EIP1
+  EIP2:
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+      Tags: 
+          - Key: Name 
+            Value: !Join
+              - '-'
+              - - !Ref ApplicationUnit
+                - !Ref EnvironmentLevel
+                - EIP2
+  EIP3:
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+      Tags: 
+          - Key: Name 
+            Value: !Join
+              - '-'
+              - - !Ref ApplicationUnit
+                - !Ref EnvironmentLevel
+                - EIP3
+  NATGW1:
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      AllocationId: !GetAtt 
+        - EIP1
+        - AllocationId
+      SubnetId: !Ref PublicSubnet1
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - NATGW1
+  NATGW2:
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      AllocationId: !GetAtt 
+        - EIP2
+        - AllocationId
+      SubnetId: !Ref PublicSubnet2
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - NATGW2
+  NATGW3:
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      AllocationId: !GetAtt 
+        - EIP3
+        - AllocationId
+      SubnetId: !Ref PublicSubnet3
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - '-'
+            - - !Ref ApplicationUnit
+              - !Ref EnvironmentLevel
+              - NATGW3
+  AttachIGW:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    DependsOn: IGW
+    Properties:
+      VpcId: !Ref VPCId
+      InternetGatewayId: !Ref IGW
+  PrivateRtb1Route:
+    Type: 'AWS::EC2::Route'
+    DependsOn: NATGW1
+    Properties:
+      RouteTableId: !Ref PrivateRtb1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGW1
+  PrivateRtb2Route:
+    Type: 'AWS::EC2::Route'
+    DependsOn: NATGW2
+    Properties:
+      RouteTableId: !Ref PrivateRtb2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGW2
+  PrivateRtb3Route:
+    Type: 'AWS::EC2::Route'
+    DependsOn: NATGW3
+    Properties:
+      RouteTableId: !Ref PrivateRtb3
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGW3
+  PublicRtb1Route:
+    Type: 'AWS::EC2::Route'
+    DependsOn: IGW
+    Properties:
+      RouteTableId: !Ref PublicRtb1
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW
+  VPCSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VPCId
+      GroupDescription: Enable HTTPS access via port 443 
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '443'
+          ToPort: '443'
+          CidrIp: !Ref VPCCIDRBlock
+        - IpProtocol: -1
+          FromPort: '-1'
+          ToPort: '-1'
+          CidrIp: !Ref VPCCIDRBlock
+        - IpProtocol: '-1'
+          CidrIp: !Ref VPCCIDRBlock
+  WebServerSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VPCId
+      GroupDescription: Enable HTTP access via port 80 
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: !Ref VPCCIDRBlock
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: !Ref VPCCIDRBlock
+        - IpProtocol: '-1'
+          CidrIp: !Ref CIDRPublicSubnet1
+Outputs:
+  VPCID:
+    Value: !Ref VPCId
+  PrimaryPublicSubnet:
+    Value: !Ref PublicSubnet1
+  PrimaryPrivateSubnet:
+    Value: !Ref PrivateSubnet1
+  PrimaryPrivateSubnet:
+    Value: !Ref PrivateSubnet2
+  SecondaryPrivateSubnet:
+    Value: !Ref PrivateSubnet3
+  SecondaryPrivateSubnet:
+    Value: !Ref PrivateSubnet4
+  SecondaryPublicSubnet:
+    Value: !Ref PublicSubnet2
+  ThirdPrivateSubnet:
+    Value: !Ref PrivateSubnet5
+  ThirdPrivateSubnet:
+    Value: !Ref PrivateSubnet6
+  ThirdPublicSubnet:
+    Value: !Ref PublicSubnet3
+  NATGateway:
+    Value: !Ref NATGW1
+  NATGateway:
+    Value: !Ref NATGW2
+  NATGateway:
+    Value: !Ref NATGW3
+  InternetGateway:
+    Value: !Ref IGW
